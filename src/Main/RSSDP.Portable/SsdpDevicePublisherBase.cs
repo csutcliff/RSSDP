@@ -51,8 +51,22 @@ LOCATION:{3}{8}
 
 "; //Blank line at end important, do not remove.
 
+        private const string WeemoSearchResponseMessageFormat = @"HTTP/1.1 200 OK
+{0}
+DATE: {1}
+EXT:
+LOCATION: {2}
+OPT: ""http://schemas.upnp.org/upnp/1/0/""; ns=01
+01-NLS: {3}
+SERVER: Unspecified, UPnP/1.0, Unspecified
+ST: {4}
+USN: {5}
+X-User-Agent: redsonic
 
-		private const string AliveNotificationMessageFormat = @"NOTIFY * HTTP/1.1
+"; //Blank line at end important, do not remove.
+
+
+        private const string AliveNotificationMessageFormat = @"NOTIFY * HTTP/1.1
 HOST: 239.255.255.250:1900
 Date: {7}
 NT: {0}
@@ -303,7 +317,7 @@ USN: {1}
 				maxWaitInterval = _Random.Next(0, 120);
 
 			//Do not block synchronously as that may tie up a threadpool thread for several seconds.
-			TaskEx.Delay(_Random.Next(16, (maxWaitInterval * 1000))).ContinueWith((parentTask) =>
+			TaskEx.Delay(_Random.Next(16, searchTarget == "urn:Belkin:device:**"?1000:(maxWaitInterval * 1000))).ContinueWith((parentTask) =>
 				{
 					//Copying devices to local array here to avoid threading issues/enumerator exceptions.
 					IEnumerable<SsdpDevice> devices = null;
@@ -363,19 +377,31 @@ USN: {1}
 			var rootDevice = device.ToRootDevice();
 
 			var additionalheaders = FormatCustomHeadersForResponse(device);
-
-			var message = String.Format(DeviceSearchResponseMessageFormat,
-					CacheControlHeaderFromTimeSpan(rootDevice),
-					searchTarget,
-					uniqueServiceName,
-					rootDevice.Location,
-					_OSName,
-					_OSVersion,
-					ServerVersion,
-					DateTime.UtcNow.ToString("r"),
-										additionalheaders
-				);
-
+            string message;
+            if (device.Weemo)
+            {
+                message = String.Format(WeemoSearchResponseMessageFormat,
+                           String.Format("CACHE-CONTROL: max-age={0}", rootDevice.CacheLifetime.TotalSeconds),
+                           DateTime.UtcNow.ToString("r"),
+                           rootDevice.Location,
+                           rootDevice.SerialNumber,
+                           searchTarget,
+                           uniqueServiceName);
+                
+            }
+            else
+            {
+                message = String.Format(DeviceSearchResponseMessageFormat,
+                    CacheControlHeaderFromTimeSpan(rootDevice),
+                    searchTarget,
+                    uniqueServiceName,
+                    rootDevice.Location,
+                    _OSName,
+                    _OSVersion,
+                    ServerVersion,
+                    DateTime.UtcNow.ToString("r"),
+                    additionalheaders);
+            }
 			_CommsServer.SendMessage(System.Text.UTF8Encoding.UTF8.GetBytes(message), endPoint);
 
 			WriteTrace(String.Format("Sent search response to " + endPoint.ToString()), device);

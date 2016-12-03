@@ -163,12 +163,19 @@ namespace Rssdp
 		{
 			get
 			{
-				return String.Format("urn:{0}:device:{1}:{2}",
+                if (Weemo)
+                    return String.Format("urn:{0}:device:**",
+                this.DeviceTypeNamespace ?? String.Empty);
+
+
+                return String.Format("urn:{0}:device:{1}:{2}",
 				this.DeviceTypeNamespace ?? String.Empty,
 				this.DeviceType ?? String.Empty,
 				this.DeviceVersion);
 			}
 		}
+        
+        public bool Weemo { get; set; }
 
 		/// <summary>
 		/// Sets or returns the universally unique identifier for this device (without the uuid: prefix). Required.
